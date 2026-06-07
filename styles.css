@@ -1,0 +1,107 @@
+.hunspell-spellchecker-error {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--text-error);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.hunspell-spellchecker-muted {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.cm-tooltip.cm-tooltip-hover:has(.hunspell-spellchecker-tooltip) {
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cm-tooltip.cm-tooltip-hover:has(.hunspell-spellchecker-tooltip) .cm-tooltip-section {
+  border: 0 !important;
+}
+
+.hunspell-spellchecker-tooltip {
+  display: flex;
+  gap: 2px;
+  max-width: min(420px, 80vw);
+  padding: 4px !important;
+  border: 1px solid var(--background-modifier-border) !important;
+  border-radius: var(--radius-s);
+  background: var(--background-primary) !important;
+  color: var(--text-normal);
+  box-shadow: var(--shadow-s) !important;
+}
+
+.hunspell-spellchecker-tooltip button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-normal);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.hunspell-spellchecker-tooltip button:hover {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
+.cm-tooltip.hunspell-spellchecker-tooltip .cm-tooltip-arrow {
+  display: none !important;
+}
+
+.hunspell-language-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hunspell-language-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+}
+
+.hunspell-language-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.hunspell-language-name {
+  font-weight: 600;
+}
+
+.hunspell-language-id {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.hunspell-language-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.hunspell-add-language-btn {
+  margin-top: 12px;
+}
+
+.hunspell-upload-hidden {
+  display: none;
+}
+
+.hunspell-status-bar-item {
+  cursor: pointer;
+}
+
+.hunspell-status-bar-item:hover {
+  color: var(--text-normal);
+}

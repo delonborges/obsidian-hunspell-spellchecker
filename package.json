@@ -1,0 +1,25 @@
+{
+  "name": "obsidian-hunspell-spellchecker",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for spell checking notes with Hunspell .aff/.dic dictionaries.",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "dev": "node esbuild.config.mjs"
+  },
+  "keywords": [
+    "obsidian",
+    "hunspell",
+    "spellcheck"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@codemirror/state": "6.4.1",
+    "@codemirror/view": "6.26.3",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.20.2",
+    "obsidian": "1.5.7",
+    "typescript": "5.4.5",
+    "@types/node": "20.12.7"
+  }
+}

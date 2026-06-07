@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-hunspell-spellchecker",
+  "name": "Hunspell Spellchecker",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "High-performance, offline spellchecker for Obsidian using Hunspell .aff and .dic dictionary pairs.",
+  "author": "Delon Borges",
+  "authorUrl": "https://delonborges.com",
+  "isDesktopOnly": false
+}
