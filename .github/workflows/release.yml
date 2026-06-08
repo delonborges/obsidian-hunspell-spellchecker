@@ -2,7 +2,13 @@ name: Release Plugin
 
 on:
   release:
-    types: [ created ]
+    types: [ created, published ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag'
+        required: true
+        type: string
 
 jobs:
   build:
@@ -26,5 +32,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${{ github.event.release.tag_name }}"
-          gh release upload "$tag" main.js manifest.json styles.css
+          tag="${{ github.event.inputs.tag || github.event.release.tag_name }}"
+          gh release upload "$tag" main.js manifest.json styles.css --clobber
