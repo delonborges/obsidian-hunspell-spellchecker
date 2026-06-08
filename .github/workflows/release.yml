@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,7 +41,7 @@ jobs:
           echo "Uploading assets to tag: $tag"
           gh release upload "$tag" main.js manifest.json styles.css --clobber
           
-      - name: Attest to build provenance
+      - name: Attest to build provenance for main
         uses: actions/attest-build-provenance@v1
         with:
           subject-path: 'main.js'
