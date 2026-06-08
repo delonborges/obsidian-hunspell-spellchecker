@@ -349,7 +349,7 @@ export function parseAffixes(source: string): ParsedAffixes {
         }
 
         if ((parts[0] === "PFX" || parts[0] === "SFX") && parts.length >= 4 && /^\d+$/.test(parts[3])) {
-            const type = parts[0] as AffixRule["type"];
+            const type = parts[0];
             const flag = parts[1];
             const crossProduct = parts[2] === "Y";
             const count = Number(parts[3]);
@@ -364,7 +364,7 @@ export function parseAffixes(source: string): ParsedAffixes {
                 }
 
                 rules.push({
-                    flag, type, crossProduct, strip: ruleParts[2] === "0" ? "" : unescapeHunspellValue(ruleParts[2]), add: stripAffixFlags(ruleParts[3] === "0" ? "" : unescapeHunspellValue(ruleParts[3])), condition: conditionToRegExp(ruleParts[4], type)
+                    flag, type: type as "PFX" | "SFX", crossProduct, strip: ruleParts[2] === "0" ? "" : unescapeHunspellValue(ruleParts[2]), add: stripAffixFlags(ruleParts[3] === "0" ? "" : unescapeHunspellValue(ruleParts[3])), condition: conditionToRegExp(ruleParts[4], type as "PFX" | "SFX")
                 });
             }
 

@@ -1,100 +1,98 @@
 .hunspell-spellchecker-error {
-  text-decoration: underline wavy var(--text-error) 1px;
-  text-underline-offset: 2px;
+    text-decoration-line: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: var(--text-error);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
 }
 
-/*
-  This is the magic part. We target the default CodeMirror tooltip container,
-  but only when it contains our specific suggestion container.
-  This lets us override the default appearance without affecting other tooltips.
-*/
-.cm-tooltip:has(.hunspell-suggestion-container) {
-  background: transparent;
-  border: none;
-  box-shadow: none;
+.cm-tooltip.hunspell-tooltip-container {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
 }
 
-/* This is our actual, visible tooltip container */
 .hunspell-suggestion-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px;
-  background-color: var(--background-secondary);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-m);
-  box-shadow: var(--shadow-l);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-l);
 }
 
 .hunspell-suggestion-button {
-  padding: 4px 8px;
-  font-size: var(--font-ui-smaller);
-  color: var(--text-normal);
-  background-color: transparent;
-  border: none;
-  border-radius: var(--radius-s);
-  cursor: pointer;
-  line-height: 1.5;
+    padding: 4px 8px;
+    font-size: var(--font-ui-smaller);
+    color: var(--text-normal);
+    background-color: transparent;
+    border: none;
+    border-radius: var(--radius-s);
+    cursor: pointer;
+    line-height: 1.5;
 }
 
 .hunspell-suggestion-button:hover {
-  background-color: var(--interactive-accent);
-  color: var(--text-on-accent);
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
 }
 
 .hunspell-spellchecker-muted {
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
 }
 
 .hunspell-language-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .hunspell-language-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background-color: var(--background-secondary);
-  border-radius: var(--radius-s);
-  border: 1px solid var(--background-modifier-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: var(--background-secondary);
+    border-radius: var(--radius-s);
+    border: 1px solid var(--background-modifier-border);
 }
 
 .hunspell-language-info {
-  display: flex;
-  flex-direction: column;
+    display: flex;
+    flex-direction: column;
 }
 
 .hunspell-language-name {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .hunspell-language-id {
-  font-size: var(--font-ui-smaller);
-  color: var(--text-muted);
+    font-size: var(--font-ui-smaller);
+    color: var(--text-muted);
 }
 
 .hunspell-language-actions {
-  display: flex;
-  gap: 8px;
+    display: flex;
+    gap: 8px;
 }
 
 .hunspell-add-language-btn {
-  margin-top: 12px;
+    margin-top: 12px;
 }
 
 .hunspell-upload-hidden {
-  display: none;
+    display: none;
 }
 
 .hunspell-status-bar-item {
-  cursor: pointer;
+    cursor: pointer;
 }
 
 .hunspell-status-bar-item:hover {
-  color: var(--text-normal);
+    color: var(--text-normal);
 }
