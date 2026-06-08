@@ -3,7 +3,7 @@
   "name": "Hunspell Spellchecker",
   "version": "1.0.3",
   "minAppVersion": "1.5.0",
-  "description": "High-performance, offline spellchecker for Obsidian using Hunspell .aff and .dic dictionary pairs.",
+  "description": "High-performance, offline spellchecker using Hunspell .aff and .dic dictionary pairs.",
   "author": "Delon Borges",
   "authorUrl": "https://delonborges.com",
   "fundingUrl": "https://buymeacoffee.com/delonborges",

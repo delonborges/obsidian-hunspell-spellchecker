@@ -78,7 +78,9 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         this.addSettingTab(new SpellcheckerSettingTab(this.app, this));
 
         this.addCommand({
-            id: "reload-dictionary", name: "Reload dictionary", callback: () => this.reloadDictionary()
+            id: "reload-dictionary", name: "Reload dictionary", callback: () => {
+                void this.reloadDictionary()
+            }
         });
 
         this.addCommand({
@@ -107,8 +109,8 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             this.addContextMenuItems(menu, editor);
         }));
 
-        await this.loadWordList(CUSTOM_DICTIONARY_FILENAME, this.customDictionaryWords);
-        await this.loadWordList(IGNORED_WORDS_FILENAME, this.ignoredWords);
+        void this.loadWordList(CUSTOM_DICTIONARY_FILENAME, this.customDictionaryWords);
+        void this.loadWordList(IGNORED_WORDS_FILENAME, this.ignoredWords);
         void this.ensureDictionaryLoaded();
     }
 
@@ -117,9 +119,12 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     async loadSettings(): Promise<void> {
-        const loaded = await this.loadData();
+        const loaded = await this.loadData() as SpellcheckerSettings | null;
         this.settings = {
-            ...DEFAULT_SETTINGS, ...loaded, languages: loaded?.languages?.length ? loaded.languages : DEFAULT_SETTINGS.languages, enabled: loaded?.enabled !== false
+            ...DEFAULT_SETTINGS,
+            ...loaded,
+            languages: loaded?.languages?.length ? loaded.languages : DEFAULT_SETTINGS.languages,
+            enabled: loaded?.enabled !== false
         };
     }
 
@@ -265,19 +270,14 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     refreshEditors(): void {
-        (this.app.workspace as unknown as {
-            updateOptions?: () => void
-        }).updateOptions?.();
+        (this.app.workspace as any).updateOptions?.();
 
         this.app.workspace.iterateAllLeaves((leaf) => {
             const view = leaf.view as any;
-            if (view && view.editor && view.editor.cm) {
-                const cm = view.editor.cm as EditorView;
-                if (cm.dispatch) {
-                    cm.dispatch({
-                        effects: forceUpdateEffect.of(null)
-                    });
-                }
+            if (view?.editor?.cm instanceof EditorView) {
+                view.editor.cm.dispatch({
+                    effects: forceUpdateEffect.of(null)
+                });
             }
         });
     }
@@ -437,6 +437,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             try {
                 displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
             } catch {
+                // Ignore if not supported
             }
 
             return entries
@@ -451,6 +452,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
                             const normalizedId = id.replace('_', '-');
                             name = displayNames.of(normalizedId) ?? id;
                         } catch {
+                            // Ignore if language id is not valid
                         }
                     }
 
@@ -545,12 +547,16 @@ function buildSuggestionTooltip(view: EditorView, pos: number, spellchecker: Hun
     }
 
     return {
-        pos: token.from, end: token.to, above: false, arrow: false, create: () => {
-            const dom = document.createElement("div");
-            dom.className = "hunspell-spellchecker-tooltip";
+        pos: token.from,
+        end: token.to,
+        above: false,
+        arrow: false,
+        create: () => {
+            const dom = activeDocument.createElement("div");
+            dom.className = "hunspell-suggestion-container";
 
             for (const suggestion of suggestions) {
-                const button = dom.createEl("button", {text: suggestion});
+                const button = dom.createEl("button", {text: suggestion, cls: "hunspell-suggestion-button"});
                 button.addEventListener("mousedown", (event) => {
                     event.preventDefault();
                 });
@@ -618,7 +624,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
 
     display(): void {
         this.containerEl.empty();
-        this.containerEl.createEl("h2", {text: "Hunspell Spellchecker"});
+        new Setting(this.containerEl).setHeading().setName("Hunspell Spellchecker");
 
         new Setting(this.containerEl)
             .setName("Active language")
@@ -638,7 +644,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                     });
             });
 
-        this.containerEl.createEl("h3", {text: "Installed Languages"});
+        new Setting(this.containerEl).setHeading().setName("Installed Languages");
 
         const langContainer = this.containerEl.createEl("div", {cls: "hunspell-language-list"});
 
@@ -656,21 +662,23 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                 deleteBtn.addEventListener("click", () => {
                     if (this.plugin.settings.languages.length <= 1) return;
 
-                    new ConfirmationModal(this.app, "Delete language", `Are you sure you want to delete the files for "${language.name}"? This action cannot be undone.`, async () => {
-                        try {
-                            await this.plugin.deletePluginFile(language.affPath);
-                            await this.plugin.deletePluginFile(language.dicPath);
+                    new ConfirmationModal(this.app, "Delete language", `Are you sure you want to delete the files for "${language.name}"? This action cannot be undone.`, () => {
+                        void (async () => {
+                            try {
+                                await this.plugin.deletePluginFile(language.affPath);
+                                await this.plugin.deletePluginFile(language.dicPath);
 
-                            await this.plugin.refreshAvailableLanguages();
-                            if (this.plugin.settings.activeLanguage === language.id && this.plugin.settings.languages.length > 0) {
-                                this.plugin.settings.activeLanguage = this.plugin.settings.languages[0].id;
-                                await this.plugin.reloadDictionary();
+                                await this.plugin.refreshAvailableLanguages();
+                                if (this.plugin.settings.activeLanguage === language.id && this.plugin.settings.languages.length > 0) {
+                                    this.plugin.settings.activeLanguage = this.plugin.settings.languages[0].id;
+                                    await this.plugin.reloadDictionary();
+                                }
+                                await this.plugin.saveSettings();
+                                this.display();
+                            } catch (e) {
+                                new Notice(`Error deleting language: ${String(e)}`);
                             }
-                            await this.plugin.saveSettings();
-                            this.display();
-                        } catch (e) {
-                            new Notice(`Error deleting language: ${String(e)}`);
-                        }
+                        })();
                     }).open();
                 });
             }
@@ -681,7 +689,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
         });
 
         addLangBtn.addEventListener("click", () => {
-            const input = document.createElement('input');
+            const input = activeDocument.createElement('input');
             input.type = 'file';
             input.multiple = true;
 
@@ -738,7 +746,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
 
         this.containerEl.createEl("hr");
 
-        this.containerEl.createEl("h3", {text: "Personal Dictionary"});
+        new Setting(this.containerEl).setHeading().setName("Personal Dictionary");
         this.containerEl.createEl("p", {
             text: "Words you have added to your dictionary via right-click to be accepted during verification.", cls: "setting-item-description"
         });
@@ -748,29 +756,33 @@ class SpellcheckerSettingTab extends PluginSettingTab {
         });
 
         const editCustomBtn = customDictButtons.createEl("button", {text: "Edit File"});
-        editCustomBtn.addEventListener("click", async () => {
-            const content = await this.plugin.readPluginFileSafe(CUSTOM_DICTIONARY_FILENAME);
-            new TextEditorModal(this.app, "Edit Personal Dictionary", content, async (newContent) => {
-                await this.plugin.writePluginFile(CUSTOM_DICTIONARY_FILENAME, newContent);
-                await this.plugin.loadWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
-                this.plugin.refreshEditors();
-                new Notice("Personal dictionary updated.");
-            }).open();
+        editCustomBtn.addEventListener("click", () => {
+            void (async () => {
+                const content = await this.plugin.readPluginFileSafe(CUSTOM_DICTIONARY_FILENAME);
+                new TextEditorModal(this.app, "Edit Personal Dictionary", content, async (newContent) => {
+                    await this.plugin.writePluginFile(CUSTOM_DICTIONARY_FILENAME, newContent);
+                    await this.plugin.loadWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
+                    this.plugin.refreshEditors();
+                    new Notice("Personal dictionary updated.");
+                }).open();
+            })();
         });
 
         const clearCustomBtn = customDictButtons.createEl("button", {text: "Clear All", cls: "mod-warning"});
         clearCustomBtn.addEventListener("click", () => {
-            new ConfirmationModal(this.app, "Clear Personal Dictionary", "Are you sure you want to delete all words from your personal dictionary? This action cannot be undone.", async () => {
-                this.plugin.customDictionaryWords.clear();
-                await this.plugin.saveWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
-                this.plugin.refreshEditors();
-                new Notice("Personal dictionary cleared.");
+            new ConfirmationModal(this.app, "Clear Personal Dictionary", "Are you sure you want to delete all words from your personal dictionary? This action cannot be undone.", () => {
+                void (async () => {
+                    this.plugin.customDictionaryWords.clear();
+                    await this.plugin.saveWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
+                    this.plugin.refreshEditors();
+                    new Notice("Personal dictionary cleared.");
+                })();
             }).open();
         });
 
         this.containerEl.createEl("hr");
 
-        this.containerEl.createEl("h3", {text: "Ignored Words"});
+        new Setting(this.containerEl).setHeading().setName("Ignored Words");
         this.containerEl.createEl("p", {
             text: "Words you have asked the spellchecker to ignore locally.", cls: "setting-item-description"
         });
@@ -780,23 +792,27 @@ class SpellcheckerSettingTab extends PluginSettingTab {
         });
 
         const editIgnoredBtn = ignoredWordsButtons.createEl("button", {text: "Edit File"});
-        editIgnoredBtn.addEventListener("click", async () => {
-            const content = await this.plugin.readPluginFileSafe(IGNORED_WORDS_FILENAME);
-            new TextEditorModal(this.app, "Edit Ignored Words", content, async (newContent) => {
-                await this.plugin.writePluginFile(IGNORED_WORDS_FILENAME, newContent);
-                await this.plugin.loadWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
-                this.plugin.refreshEditors();
-                new Notice("Ignored words updated.");
-            }).open();
+        editIgnoredBtn.addEventListener("click", () => {
+            void (async () => {
+                const content = await this.plugin.readPluginFileSafe(IGNORED_WORDS_FILENAME);
+                new TextEditorModal(this.app, "Edit Ignored Words", content, async (newContent) => {
+                    await this.plugin.writePluginFile(IGNORED_WORDS_FILENAME, newContent);
+                    await this.plugin.loadWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
+                    this.plugin.refreshEditors();
+                    new Notice("Ignored words updated.");
+                }).open();
+            })();
         });
 
         const clearIgnoredBtn = ignoredWordsButtons.createEl("button", {text: "Clear All", cls: "mod-warning"});
         clearIgnoredBtn.addEventListener("click", () => {
-            new ConfirmationModal(this.app, "Clear Ignored Words", "Are you sure you want to clear the list of all ignored words? The spellchecker will flag them again.", async () => {
-                this.plugin.ignoredWords.clear();
-                await this.plugin.saveWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
-                this.plugin.refreshEditors();
-                new Notice("Ignored words list cleared.");
+            new ConfirmationModal(this.app, "Clear Ignored Words", "Are you sure you want to clear the list of all ignored words? The spellchecker will flag them again.", () => {
+                void (async () => {
+                    this.plugin.ignoredWords.clear();
+                    await this.plugin.saveWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
+                    this.plugin.refreshEditors();
+                    new Notice("Ignored words list cleared.");
+                })();
             }).open();
         });
     }

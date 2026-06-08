@@ -66,7 +66,7 @@ export class HunspellDictionary {
         if (onProgress) onProgress("Parsing affixes...");
         const affixes = parseAffixes(files.aff);
 
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => window.setTimeout(resolve, 0));
 
         if (onProgress) onProgress("Parsing dictionary file...");
         const parsedWords = parseDictionary(files.dic, affixes.flagMode);
@@ -86,7 +86,7 @@ export class HunspellDictionary {
                 dict.addRootWord(parsed);
             }
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => window.setTimeout(resolve, 0));
         }
 
         if (onProgress) onProgress("Dictionary loaded");

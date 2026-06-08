@@ -1,57 +1,50 @@
 .hunspell-spellchecker-error {
-  text-decoration-line: underline;
-  text-decoration-style: wavy;
-  text-decoration-color: var(--text-error);
-  text-decoration-thickness: 1px;
+  text-decoration: underline wavy var(--text-error) 1px;
   text-underline-offset: 2px;
+}
+
+/*
+  This is the magic part. We target the default CodeMirror tooltip container,
+  but only when it contains our specific suggestion container.
+  This lets us override the default appearance without affecting other tooltips.
+*/
+.cm-tooltip:has(.hunspell-suggestion-container) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* This is our actual, visible tooltip container */
+.hunspell-suggestion-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+}
+
+.hunspell-suggestion-button {
+  padding: 4px 8px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-normal);
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-s);
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.hunspell-suggestion-button:hover {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
 }
 
 .hunspell-spellchecker-muted {
   color: var(--text-muted);
   font-size: var(--font-ui-smaller);
-}
-
-.cm-tooltip.cm-tooltip-hover:has(.hunspell-spellchecker-tooltip) {
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.cm-tooltip.cm-tooltip-hover:has(.hunspell-spellchecker-tooltip) .cm-tooltip-section {
-  border: 0 !important;
-}
-
-.hunspell-spellchecker-tooltip {
-  display: flex;
-  gap: 2px;
-  max-width: min(420px, 80vw);
-  padding: 4px !important;
-  border: 1px solid var(--background-modifier-border) !important;
-  border-radius: var(--radius-s);
-  background: var(--background-primary) !important;
-  color: var(--text-normal);
-  box-shadow: var(--shadow-s) !important;
-}
-
-.hunspell-spellchecker-tooltip button {
-  padding: 4px 8px;
-  border: 0;
-  border-radius: var(--radius-s);
-  background: transparent;
-  color: var(--text-normal);
-  font-size: var(--font-ui-smaller);
-  line-height: 1.4;
-  cursor: pointer;
-}
-
-.hunspell-spellchecker-tooltip button:hover {
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-}
-
-.cm-tooltip.hunspell-spellchecker-tooltip .cm-tooltip-arrow {
-  display: none !important;
 }
 
 .hunspell-language-list {

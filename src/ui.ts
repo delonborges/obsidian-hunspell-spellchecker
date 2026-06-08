@@ -24,9 +24,11 @@ export class TextEditorModal extends Modal {
                 this.content = value;
             });
 
-        this.textArea.inputEl.style.width = '100%';
-        this.textArea.inputEl.style.minHeight = '300px';
-        this.textArea.inputEl.style.resize = 'vertical';
+        this.textArea.inputEl.setCssProps({
+            width: "100%",
+            minHeight: "300px",
+            resize: "vertical"
+        });
 
         const buttonContainer = contentEl.createEl('div', {
             attr: {style: 'display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;'}
@@ -38,8 +40,8 @@ export class TextEditorModal extends Modal {
         const saveBtn = buttonContainer.createEl('button', {
             text: 'Save', cls: 'mod-cta'
         });
-        saveBtn.addEventListener('click', async () => {
-            await this.onSave(this.content);
+        saveBtn.addEventListener('click', () => {
+            void this.onSave(this.content);
             this.close();
         });
     }
