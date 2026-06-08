@@ -1,9 +1,8 @@
 name: Release Plugin
 
 on:
-  push:
-    tags:
-      - "*"
+  release:
+    types: [ created ]
 
 jobs:
   build:
@@ -23,13 +22,9 @@ jobs:
           npm install
           npm run build
 
-      - name: Create release
+      - name: Upload assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="${GITHUB_REF#refs/tags/}"
-
-          gh release create "$tag" \
-            --title="$tag" \
-            --draft \
-            main.js manifest.json styles.css languages/*
+          tag="${{ github.event.release.tag_name }}"
+          gh release upload "$tag" main.js manifest.json styles.css
