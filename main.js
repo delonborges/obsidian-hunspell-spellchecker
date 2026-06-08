@@ -61,7 +61,7 @@ var HunspellDictionary = class _HunspellDictionary {
     const total = parsedWords.length;
     for (let i = 0; i < total; i += CHUNK_SIZE) {
       if (onProgress && i % (CHUNK_SIZE * 3) === 0) {
-        onProgress(`Carregando ra\xEDzes... ${Math.round(i / total * 100)}%`);
+        onProgress(`Loading roots... ${Math.round(i / total * 100)}%`);
       }
       const chunk = parsedWords.slice(i, i + CHUNK_SIZE);
       for (const parsed of chunk) {
