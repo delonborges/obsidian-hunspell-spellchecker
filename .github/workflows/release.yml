@@ -2,7 +2,7 @@ name: Release Plugin
 
 on:
   release:
-    types: [created, published]
+    types: [ published ]
   workflow_dispatch:
 
 jobs:
