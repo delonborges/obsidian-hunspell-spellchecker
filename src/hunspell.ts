@@ -349,7 +349,7 @@ export function parseAffixes(source: string): ParsedAffixes {
         }
 
         if ((parts[0] === "PFX" || parts[0] === "SFX") && parts.length >= 4 && /^\d+$/.test(parts[3])) {
-            const type = parts[0] as "PFX" | "SFX";
+            const type = parts[0];
             const flag = parts[1];
             const crossProduct = parts[2] === "Y";
             const count = Number(parts[3]);

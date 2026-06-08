@@ -1,6 +1,5 @@
 .hunspell-spellchecker-error {
-  text-decoration: underline wavy var(--text-error) 1px;
-  text-underline-offset: 2px;
+  border-bottom: 1px dotted var(--text-error);
 }
 
 .cm-tooltip.hunspell-tooltip-container {
@@ -82,7 +81,7 @@
   margin-top: 12px;
 }
 
-.hunspell-upload-hidden {
+.is-hidden {
   display: none;
 }
 
