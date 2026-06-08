@@ -25,6 +25,13 @@ interface GithubContentItem {
     download_url?: string;
 }
 
+interface AppWithSettings extends App {
+    setting: {
+        open(): void;
+        openTabById(id: string): void;
+    };
+}
+
 const MIN_WORD_LENGTH = 2;
 const CUSTOM_DICTIONARY_FILENAME = "custom_dictionary.txt";
 const IGNORED_WORDS_FILENAME = "ignored_words.txt";
@@ -79,11 +86,11 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
 
                 menu.addItem((item) => {
                     item.setTitle("Manage languages...")
-                        .setIcon("settings") // A gear icon
+                        .setIcon("settings")
                         .onClick(() => {
-                            // Open plugin settings tab
-                            (this.app as any).setting.open();
-                            (this.app as any).setting.openTabById(this.manifest.id);
+                            const appWithSettings = this.app as unknown as AppWithSettings;
+                            appWithSettings.setting.open();
+                            appWithSettings.setting.openTabById(this.manifest.id);
                         });
                 });
 
@@ -472,6 +479,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             try {
                 displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
             } catch {
+                console.error("Failed to initialize Intl.DisplayNames");
             }
 
             return entries
@@ -485,7 +493,8 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
                         try {
                             const normalizedId = id.replace('_', '-');
                             name = displayNames.of(normalizedId) ?? id;
-                        } catch {
+                        } catch (err) {
+                            console.error(err);
                         }
                     }
 
@@ -493,7 +502,8 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
                         id, name: name, affPath: `languages/${id}.aff`, dicPath: `languages/${id}.dic`
                     };
                 });
-        } catch {
+        } catch (err) {
+            console.error(err);
             return [];
         }
     }
@@ -665,7 +675,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
         this.containerEl.empty();
         new Setting(this.containerEl).setHeading().setName("Hunspell Spellchecker");
 
-        const activeLangSetting = new Setting(this.containerEl)
+        new Setting(this.containerEl)
             .setName("Active language")
             .setDesc("Select the language for spell checking")
             .addDropdown((dropdown) => {
@@ -720,6 +730,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                                 this.display();
                             } catch (e) {
                                 new Notice(`Error deleting language: ${String(e)}`);
+                                console.error(e);
                             }
                         })();
                     }).open();
@@ -753,7 +764,8 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                             try {
                                 const displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
                                 name = displayNames.of(item.name.replace('_', '-')) ?? item.name;
-                            } catch {
+                            } catch (err) {
+                                console.error(err);
                             }
                             return {id: item.name, name: name};
                         })
@@ -770,7 +782,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
         });
 
         if (this.availableRemoteLanguages.length > 0) {
-            fetchBtn.style.display = "none";
+            fetchBtn.classList.add("is-hidden");
 
             const remoteListEl = this.containerEl.createEl("div", {
                 cls: "hunspell-language-list", attr: {style: "max-height: 400px; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); padding: 8px;"}
@@ -827,6 +839,7 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                             this.display();
                         } catch (e) {
                             new Notice(`Error installing language: ${String(e)}`);
+                            console.error(e);
                             installBtn.textContent = "Install";
                             installBtn.disabled = false;
                         }

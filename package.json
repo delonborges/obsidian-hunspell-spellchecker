@@ -1,6 +1,6 @@
 {
   "name": "obsidian-hunspell-spellchecker",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Obsidian plugin for spell checking notes with Hunspell .aff/.dic dictionaries.",
   "main": "main.js",
   "scripts": {
