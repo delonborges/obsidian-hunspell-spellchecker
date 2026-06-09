@@ -13,10 +13,16 @@ interface LanguageConfig {
     dicPath: string;
 }
 
+interface LanguageCache {
+    [id: string]: string;
+}
+
 interface SpellcheckerSettings {
     activeLanguage: string;
     languages: LanguageConfig[];
     enabled: boolean;
+    languageCache: LanguageCache;
+    lastFetch: number;
 }
 
 interface GithubContentItem {
@@ -37,7 +43,7 @@ const CUSTOM_DICTIONARY_FILENAME = "custom_dictionary.txt";
 const IGNORED_WORDS_FILENAME = "ignored_words.txt";
 
 const DEFAULT_SETTINGS: SpellcheckerSettings = {
-    activeLanguage: "", languages: [], enabled: true
+    activeLanguage: "", languages: [], enabled: true, languageCache: {}, lastFetch: 0
 };
 
 export const forceUpdateEffect = StateEffect.define<null>();
@@ -148,10 +154,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     async loadSettings(): Promise<void> {
-        const loaded = await this.loadData() as SpellcheckerSettings | null;
-        this.settings = {
-            ...DEFAULT_SETTINGS, ...loaded, languages: loaded?.languages?.length ? loaded.languages : DEFAULT_SETTINGS.languages, enabled: loaded?.enabled !== false
-        };
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
 
     async saveSettings(): Promise<void> {
@@ -754,23 +757,35 @@ class SpellcheckerSettingTab extends PluginSettingTab {
                 fetchBtn.textContent = "Fetching...";
                 fetchBtn.disabled = true;
                 try {
-                    const response = await requestUrl({url: "https://api.github.com/repos/LibreOffice/dictionaries/contents"});
-                    const data = response.json as GithubContentItem[];
+                    const now = Date.now();
+                    const oneDay = 24 * 60 * 60 * 1000;
+                    if (this.plugin.settings.lastFetch && now - this.plugin.settings.lastFetch < oneDay && Object.keys(this.plugin.settings.languageCache).length > 0) {
+                        this.availableRemoteLanguages = Object.entries(this.plugin.settings.languageCache).map(([id, name]) => ({ id, name }));
+                    } else {
+                        const response = await requestUrl({url: "https://api.github.com/repos/LibreOffice/dictionaries/contents"});
+                        const data = response.json as GithubContentItem[];
 
-                    this.availableRemoteLanguages = data
-                        .filter(item => item.type === "dir" && !item.name.startsWith(".") && item.name !== "util")
-                        .map(item => {
-                            let name = item.name;
-                            try {
-                                const displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
-                                name = displayNames.of(item.name.replace('_', '-')) ?? item.name;
-                            } catch (err) {
-                                console.error(err);
-                            }
-                            return {id: item.name, name: name};
-                        })
-                        .sort((a, b) => a.name.localeCompare(b.name));
-
+                        const languageCache: LanguageCache = {};
+                        this.availableRemoteLanguages = data
+                            .filter(item => item.type === "dir" && !item.name.startsWith(".") && item.name !== "util")
+                            .map(item => {
+                                let name = item.name;
+                                try {
+                                    const displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
+                                    name = displayNames.of(item.name.replace('_', '-')) ?? item.name;
+                                } catch (err) {
+                                    console.error(err);
+                                }
+                                languageCache[item.name] = name;
+                                return {id: item.name, name: name};
+                            })
+                            .sort((a, b) => a.name.localeCompare(b.name));
+                        
+                        this.plugin.settings.languageCache = languageCache;
+                        this.plugin.settings.lastFetch = now;
+                        await this.plugin.saveSettings();
+                    }
+                    
                     this.display();
                 } catch (err) {
                     new Notice("Failed to fetch languages from GitHub.");

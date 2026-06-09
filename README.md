@@ -10,9 +10,10 @@ suggestions—without ever sending your private notes to third-party servers.
 
 - **High Performance on Mobile:** Specifically architected to avoid memory bloat. The spellchecking engine uses "on-the-fly" reverse affix evaluation, making it light enough to run smoothly on iOS and Android devices.
 - **True Multi-Language Support:** Install as many dictionaries as you need. Includes seamless integration with the `Intl.DisplayNames` API to show native language names.
-- **1-Click Dictionary Downloads:** Browse and install languages directly from the official LibreOffice repository from within the plugin settings.
+- **1-Click Dictionary Downloads:** Browse and install languages directly from the official LibreOffice repository from within the plugin settings. No manual file downloads are required!
+- **Intelligent & Efficient:** The plugin automatically filters out incompatible dictionary types (like hyphenation or thesaurus files) and caches the list of available languages for 24 hours to avoid hitting API rate limits and provide an instant experience.
 - **Quick Swap Menu:** Change your active spellchecking language or quickly access settings directly from the Obsidian Status Bar at the bottom right.
-- **Smart Tooltip & Context Menu:** Hover over or right-click on a misspelled word to see real-time suggestions (only on desktop).
+- **Smart Tooltip & Context Menu:** Hover over or right-click on a misspelled word to see real-time suggestions perfectly integrated with your Obsidian theme.
 - **Personal Dictionary & Ignored Words:**
     - Full control over your local dictionaries.
     - Edit your "Ignored Words" or "Custom Dictionary" directly inside Obsidian using a built-in text editor modal.
