@@ -1,7 +1,7 @@
 {
   "id": "hunspell-spellchecker",
   "name": "Hunspell Spellchecker",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "minAppVersion": "1.5.0",
   "description": "High-performance, offline spellchecker using Hunspell .aff and .dic dictionary pairs.",
   "author": "Delon Borges",

@@ -1,36 +1,49 @@
 # Hunspell Spellchecker for Obsidian
 
-[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+A high-performance, offline spellchecker for Obsidian using standard Hunspell dictionaries (`.aff` and `.dic` files).
 
-A high-performance, offline spellchecker for Obsidian using standard Hunspell `.aff` and `.dic` dictionary pairs. This plugin provides advanced
-control over multiple languages, cross-platform stability (including Mobile support), and real-time word
-suggestions—without ever sending your private notes to third-party servers.
+## Features
 
-## ✨ Features
+- **Offline by Design:** All spellchecking happens locally on your device. No data is ever sent to external servers.
+- **Multiple Languages:** Download and manage multiple language dictionaries directly within the plugin settings.
+- **Performance:** Optimized to run smoothly even on large documents without causing typing lag.
+- **Personal Dictionary:** Add custom words via right-click to prevent them from being flagged in the future.
+- **Ignored Words:** Temporarily ignore words within your vault.
+- **Smart Capitalization:** The plugin now respects the original capitalization of words added to your personal dictionary or ignored words list.
+- **Interactive Status Bar:** 
+  - Quickly see the active language.
+  - View the number of misspelled words currently visible on your screen.
+  - Click the active language to open settings.
+  - Click the error count (🔴) to see a dropdown list of misspelled words. Click any word in the list to jump directly to it in your text!
 
-- **High Performance on Mobile:** Specifically architected to avoid memory bloat. The spellchecking engine uses "on-the-fly" reverse affix evaluation, making it light enough to run smoothly on iOS and Android devices.
-- **True Multi-Language Support:** Install as many dictionaries as you need. Includes seamless integration with the `Intl.DisplayNames` API to show native language names.
-- **1-Click Dictionary Downloads:** Browse and install languages directly from the official LibreOffice repository from within the plugin settings. No manual file downloads are required!
-- **Intelligent & Efficient:** The plugin automatically filters out incompatible dictionary types (like hyphenation or thesaurus files) and caches the list of available languages for 24 hours to avoid hitting API rate limits and provide an instant experience.
-- **Quick Swap Menu:** Change your active spellchecking language or quickly access settings directly from the Obsidian Status Bar at the bottom right.
-- **Smart Tooltip & Context Menu:** Hover over or right-click on a misspelled word to see real-time suggestions perfectly integrated with your Obsidian theme.
-- **Personal Dictionary & Ignored Words:**
-    - Full control over your local dictionaries.
-    - Edit your "Ignored Words" or "Custom Dictionary" directly inside Obsidian using a built-in text editor modal.
+## Installation
 
-## 🌐 Getting Started & Adding Languages
+### From Obsidian Community Plugins
 
-To keep the plugin lightweight, it does not come with any languages pre-installed. 
+1. Open Obsidian Settings.
+2. Go to **Community plugins** and turn off "Safe mode".
+3. Click **Browse** and search for "Hunspell Spellchecker".
+4. Install and enable the plugin.
 
-To add a language:
-1. Go to your Obsidian Settings > **Hunspell Spellchecker**.
-2. Scroll down to the **Download Languages** section and click **Fetch available languages**.
-3. The plugin will securely fetch the official list of languages from the open-source LibreOffice repository on GitHub.
-4. Find your desired language in the list (e.g., *Portuguese (Brazil)* or *English (US)*) and click **Install**. 
-5. The plugin will automatically download the correct `.aff` and `.dic` files and activate the language. 
+### Manual Installation
 
-You can now use the status bar menu at the bottom right to quickly swap between installed languages!
+1. Download the latest release from the [Releases](https://github.com/delonborges/obsidian-hunspell-spellchecker/releases) page.
+2. Extract the contents (`main.js`, `manifest.json`, `styles.css`) into your vault's `.obsidian/plugins/obsidian-hunspell-spellchecker` folder.
+3. Reload Obsidian and enable the plugin in Settings > Community plugins.
 
-## ⚖️ License
+## Usage
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+1. Open the plugin settings.
+2. Scroll to **Download Languages** and click "Fetch available languages".
+3. Find your desired language in the list and click **Install**.
+4. Once installed, select it from the **Active language** dropdown at the top.
+5. Misspelled words will now have a red squiggly line underneath them.
+6. Right-click a misspelled word to see suggestions, add it to your dictionary, or ignore it.
+
+## Contributing
+
+Contributions, issues, and feature requests are welcome!
+
+## License
+
+MIT License

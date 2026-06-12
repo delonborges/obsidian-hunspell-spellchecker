@@ -21,3 +21,19 @@ export class LRUCache<K, V> {
         this.cache.clear();
     }
 }
+
+export function parseCustomDictionary(content: string): string[] {
+    return content
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+}
+
+export function getFileName(path: string): string {
+    return path.split("/").pop() ?? "";
+}
+
+export function removeFileExtension(fileName: string): string {
+    const index = fileName.lastIndexOf(".");
+    return index === -1 ? fileName : fileName.slice(0, index);
+}

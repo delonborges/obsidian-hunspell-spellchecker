@@ -1,42 +1,13 @@
-import {Extension, RangeSetBuilder, StateEffect} from "@codemirror/state";
-import {Decoration, DecorationSet, EditorView, hoverTooltip, Tooltip, ViewPlugin, ViewUpdate} from "@codemirror/view";
-import {App, Editor, EditorRange, MarkdownView, Menu, normalizePath, Notice, Platform, Plugin, PluginSettingTab, requestUrl, Setting, WorkspaceLeaf} from "obsidian";
+import {Editor, EditorRange, MarkdownView, Menu, normalizePath, Notice, Platform, Plugin, WorkspaceLeaf} from "obsidian";
+import {StateEffect} from "@codemirror/state";
+import {EditorView} from "@codemirror/view";
 import {boundedLevenshteinDistance, HunspellDictionary} from "./hunspell";
-import {tokenize} from "./tokenize";
-import {LRUCache} from "./utils";
-import {ConfirmationModal, TextEditorModal} from "./ui";
+import {getFileName, LRUCache, parseCustomDictionary, removeFileExtension} from "./utils";
+import {AppWithSettings, LanguageConfig, SpellcheckerSettings} from "./types";
+import {SpellcheckerSettingTab} from "./settings";
+import {createSpellcheckExtension} from "./editor";
 
-interface LanguageConfig {
-    id: string;
-    name: string;
-    affPath: string;
-    dicPath: string;
-}
-
-interface LanguageCache {
-    [id: string]: string;
-}
-
-interface SpellcheckerSettings {
-    activeLanguage: string;
-    languages: LanguageConfig[];
-    enabled: boolean;
-    languageCache: LanguageCache;
-    lastFetch: number;
-}
-
-interface GithubContentItem {
-    type: string;
-    name: string;
-    download_url?: string;
-}
-
-interface AppWithSettings extends App {
-    setting: {
-        open(): void;
-        openTabById(id: string): void;
-    };
-}
+export const forceUpdateEffect = StateEffect.define<null>();
 
 const MIN_WORD_LENGTH = 2;
 const CUSTOM_DICTIONARY_FILENAME = "custom_dictionary.txt";
@@ -46,14 +17,22 @@ const DEFAULT_SETTINGS: SpellcheckerSettings = {
     activeLanguage: "", languages: [], enabled: true, languageCache: {}, lastFetch: 0
 };
 
-export const forceUpdateEffect = StateEffect.define<null>();
-
 export default class HunspellSpellcheckerPlugin extends Plugin {
     settings: SpellcheckerSettings = DEFAULT_SETTINGS;
     dictionary: HunspellDictionary | null = null;
     ignoredWords = new Set<string>();
     customDictionaryWords = new Set<string>();
+
     statusBar: HTMLElement | null = null;
+    langEl: HTMLElement | null = null;
+    errorEl: HTMLElement | null = null;
+
+    errorCount: number = 0;
+    currentErrors: {
+        word: string,
+        from: number,
+        to: number
+    }[] = [];
 
     private shouldFlagWordCache = new LRUCache<string, boolean>(10000);
     private suggestionsCache = new LRUCache<string, string[]>(2000);
@@ -67,10 +46,14 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             await this.loadSettings();
 
             this.statusBar = this.addStatusBarItem();
-            this.statusBar.setText("Hunspell: disabled");
             this.statusBar.classList.add("hunspell-status-bar-item");
 
-            this.registerDomEvent(this.statusBar, "click", (event) => {
+            this.langEl = this.statusBar.createEl("span", {cls: "hunspell-status-lang", attr: {style: "cursor: pointer;"}});
+            this.langEl.title = "Settings / Change language";
+
+            this.errorEl = this.statusBar.createEl("span", {cls: "hunspell-status-error", attr: {style: "margin-left: 4px; cursor: pointer;"}});
+
+            this.registerDomEvent(this.langEl, "click", (event) => {
                 if (!this.settings.enabled) return;
 
                 const menu = new Menu();
@@ -103,12 +86,52 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
                 menu.showAtMouseEvent(event);
             });
 
+            this.registerDomEvent(this.errorEl, "click", (event) => {
+                if (!this.settings.enabled || this.currentErrors.length === 0) return;
+
+                const menu = new Menu();
+                const errorsToShow = this.currentErrors.slice(0, 50);
+
+                for (const error of errorsToShow) {
+                    menu.addItem((item) => {
+                        item.setTitle(error.word)
+                            .setIcon("edit")
+                            .onClick(() => {
+                                const activeView = this.app.workspace.getActiveViewOfType(MarkdownView);
+                                if (activeView && activeView.editor) {
+                                    const editor = activeView.editor;
+                                    try {
+                                        const fromPos = editor.offsetToPos(error.from);
+                                        const toPos = editor.offsetToPos(error.to);
+                                        editor.setSelection(fromPos, toPos);
+                                        editor.scrollIntoView({from: fromPos, to: toPos});
+                                        this.app.workspace.setActiveLeaf(activeView.leaf, {focus: true});
+                                    } catch (e) {
+                                        console.warn("Could not navigate to word", e);
+                                    }
+                                }
+                            });
+                    });
+                }
+
+                if (this.currentErrors.length > 50) {
+                    menu.addItem((item) => {
+                        item.setTitle(`...and ${this.currentErrors.length - 50} more`)
+                            .setDisabled(true);
+                    });
+                }
+
+                menu.showAtMouseEvent(event);
+            });
+
+            this.updateStatusBarText("disabled");
+
             if (!this.settings.enabled) {
                 return;
             }
 
-            this.statusBar.setText("Hunspell: waiting");
-            this.registerEditorExtension(this.createSpellcheckExtension());
+            this.updateStatusBarText("waiting");
+            this.registerEditorExtension(createSpellcheckExtension(this));
             this.addSettingTab(new SpellcheckerSettingTab(this.app, this));
 
             this.addCommand({
@@ -187,7 +210,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         }
 
         const normalized = word.toLocaleLowerCase();
-        const shouldFlag = word.length >= MIN_WORD_LENGTH && !this.ignoredWords.has(normalized) && !this.customDictionaryWords.has(normalized) && !/^[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,}$/u.test(word) && !this.dictionary.has(word);
+        const shouldFlag = word.length >= MIN_WORD_LENGTH && !this.ignoredWords.has(word) && !this.ignoredWords.has(normalized) && !this.customDictionaryWords.has(word) && !this.customDictionaryWords.has(normalized) && !/^[A-ZÁÀÂÃÉÊÍÓÔÕÚÜÇ]{2,}$/u.test(word) && !this.dictionary.has(word);
 
         this.shouldFlagWordCache.set(word, shouldFlag);
         return shouldFlag;
@@ -214,11 +237,11 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     async ignoreWord(word: string): Promise<void> {
-        const normalized = normalizeCustomDictionaryWord(word);
-        if (!normalized) return;
+        const trimmed = word.trim();
+        if (!trimmed) return;
 
-        if (!this.ignoredWords.has(normalized)) {
-            this.ignoredWords.add(normalized);
+        if (!this.ignoredWords.has(trimmed)) {
+            this.ignoredWords.add(trimmed);
             await this.saveWordList(IGNORED_WORDS_FILENAME, this.ignoredWords);
             this.shouldFlagWordCache.clear();
             this.refreshEditors();
@@ -228,13 +251,13 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     async addWordToDictionary(word: string): Promise<void> {
-        const normalized = normalizeCustomDictionaryWord(word);
-        if (!normalized) {
+        const trimmed = word.trim();
+        if (!trimmed) {
             return;
         }
 
-        if (!this.customDictionaryWords.has(normalized)) {
-            this.customDictionaryWords.add(normalized);
+        if (!this.customDictionaryWords.has(trimmed)) {
+            this.customDictionaryWords.add(trimmed);
             await this.saveWordList(CUSTOM_DICTIONARY_FILENAME, this.customDictionaryWords);
             this.shouldFlagWordCache.clear();
             this.suggestionsCache.clear();
@@ -318,13 +341,41 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
                 const editor = view.editor as unknown as {
                     cm?: EditorView
                 };
-                if (editor.cm instanceof EditorView) {
+                if (editor.cm) {
                     editor.cm.dispatch({
                         effects: forceUpdateEffect.of(null)
                     });
                 }
             }
         });
+    }
+
+    updateStatusBarText(state: string) {
+        if (!this.langEl || !this.errorEl || this.unloaded) return;
+
+        const language = this.getActiveLanguage();
+
+        if (state === "disabled" || state === "waiting" || state === "no language" || state === "error" || state.startsWith("loading")) {
+            this.langEl.textContent = `Hunspell: ${state}`;
+            this.errorEl.textContent = "";
+            this.errorEl.style.display = "none";
+        } else if (language) {
+            const langId = language.id.replace('_', '-');
+            this.langEl.textContent = `${langId}: `;
+
+            this.errorEl.style.display = "inline";
+            if (this.errorCount > 0) {
+                this.errorEl.textContent = `🔴 (${this.errorCount})`;
+                this.errorEl.title = "Show misspelled words";
+            } else {
+                this.errorEl.textContent = `🟢`;
+                this.errorEl.title = "No misspelled words found";
+            }
+        }
+    }
+
+    getActiveLanguage(): LanguageConfig | undefined {
+        return this.settings.languages.find((language) => language.id === this.settings.activeLanguage);
     }
 
     private async performDictionaryReload(options: {
@@ -337,7 +388,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             this.dictionary = null;
             this.shouldFlagWordCache.clear();
             this.suggestionsCache.clear();
-            this.statusBar?.setText("Hunspell: no language");
+            this.updateStatusBarText("no language");
             if (!options.silent) {
                 new Notice("No active language configured.");
             }
@@ -346,7 +397,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         }
 
         try {
-            this.statusBar?.setText(`Hunspell: loading ${language.id}...`);
+            this.updateStatusBarText(`loading ${language.id}...`);
 
             const [aff, dic] = await Promise.all([this.readPluginFileSafe(language.affPath), this.readPluginFileSafe(language.dicPath)]);
             if (!aff || !dic) {
@@ -355,13 +406,13 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
 
             this.dictionary = await HunspellDictionary.fromFiles({aff, dic}, (msg) => {
                 if (!this.unloaded) {
-                    this.statusBar?.setText(`Hunspell: ${msg}`);
+                    this.updateStatusBarText(msg);
                 }
             });
 
             this.shouldFlagWordCache.clear();
             this.suggestionsCache.clear();
-            this.statusBar?.setText(`Hunspell: ${language.id}`);
+            this.updateStatusBarText(language.id);
             if (!options.silent) {
                 new Notice(`Dictionary ${language.name} loaded.`);
             }
@@ -370,7 +421,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             this.dictionary = null;
             this.shouldFlagWordCache.clear();
             this.suggestionsCache.clear();
-            this.statusBar?.setText("Hunspell: error");
+            this.updateStatusBarText("error");
             if (!options.silent) {
                 new Notice(`Error loading dictionary: ${String(error)}`);
             }
@@ -387,14 +438,14 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     private suggestCustomDictionaryWords(word: string, limit: number): string[] {
-        const normalized = normalizeCustomDictionaryWord(word);
+        const normalized = word.trim().toLocaleLowerCase();
         if (!normalized || !this.customDictionaryWords.size) {
             return [];
         }
 
         return Array.from(this.customDictionaryWords)
             .map((candidate) => ({
-                candidate, distance: boundedLevenshteinDistance(normalized, candidate, 2)
+                candidate, distance: boundedLevenshteinDistance(normalized, candidate.toLocaleLowerCase(), 2)
             }))
             .filter(({distance}) => distance <= 2)
             .sort((left, right) => left.distance - right.distance || left.candidate.localeCompare(right.candidate))
@@ -463,10 +514,6 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         return editor.wordAt(editor.getCursor());
     }
 
-    private getActiveLanguage(): LanguageConfig | undefined {
-        return this.settings.languages.find((language) => language.id === this.settings.activeLanguage);
-    }
-
     private async discoverDictionaryLanguages(): Promise<LanguageConfig[]> {
         try {
             const languagesPath = this.getPluginPath("languages");
@@ -516,423 +563,5 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         if (!(await this.app.vault.adapter.exists(directoryPath))) {
             await this.app.vault.adapter.mkdir(directoryPath);
         }
-    }
-
-    private createSpellcheckExtension(): Extension[] {
-        return createSpellcheckExtension(this);
-    }
-}
-
-function createSpellcheckExtension(plugin: HunspellSpellcheckerPlugin): Extension[] {
-    const decorations = ViewPlugin.define((view) => {
-        let decorations = buildDecorations(view, plugin);
-
-        return {
-            get decorations(): DecorationSet {
-                return decorations;
-            }, update(update: ViewUpdate): void {
-                const hasForceUpdate = update.transactions.some(tr => tr.effects.some(e => e.is(forceUpdateEffect)));
-
-                if (update.docChanged || update.viewportChanged || hasForceUpdate) {
-                    decorations = buildDecorations(update.view, plugin);
-                }
-            }
-        };
-    }, {
-        decorations: (value) => value.decorations
-    });
-
-    const extensions: Extension[] = [decorations];
-
-    if (Platform.isDesktop) {
-        const suggestions = hoverTooltip((view, pos) => buildSuggestionTooltip(view, pos, plugin), {
-            hoverTime: 300, hideOnChange: true
-        });
-        extensions.push(suggestions);
-    }
-
-    return extensions;
-}
-
-function buildDecorations(view: EditorView, plugin: HunspellSpellcheckerPlugin): DecorationSet {
-    if (!plugin.settings.enabled || !plugin.dictionary) {
-        return new RangeSetBuilder<Decoration>().finish();
-    }
-
-    const builder = new RangeSetBuilder<Decoration>();
-    const doc = view.state.doc;
-
-    for (const {from, to} of view.visibleRanges) {
-        let pos = from;
-        while (pos <= to) {
-            const line = doc.lineAt(pos);
-            const text = line.text;
-
-            for (const token of tokenize(text)) {
-                if (plugin.shouldFlagWord(token.text)) {
-                    builder.add(line.from + token.from, line.from + token.to, Decoration.mark({class: "hunspell-spellchecker-error"}));
-                }
-            }
-
-            pos = line.to + 1;
-        }
-    }
-
-    return builder.finish();
-}
-
-function buildSuggestionTooltip(view: EditorView, pos: number, spellchecker: HunspellSpellcheckerPlugin): Tooltip | null {
-    const token = findMisspelledTokenAt(view, pos, spellchecker);
-    if (!token) {
-        return null;
-    }
-
-    const suggestions = spellchecker.suggest(token.text, 6);
-    if (!suggestions.length) {
-        return null;
-    }
-
-    return {
-        pos: token.from, end: token.to, above: false, arrow: false, create: () => {
-            const dom = activeDocument.createElement("div");
-            dom.className = "hunspell-suggestion-container";
-
-            for (const suggestion of suggestions) {
-                const button = dom.createEl("button", {text: suggestion, cls: "hunspell-suggestion-button"});
-                button.addEventListener("mousedown", (event) => {
-                    event.preventDefault();
-                });
-                button.addEventListener("click", () => {
-                    view.dispatch({
-                        changes: {from: token.from, to: token.to, insert: suggestion}
-                    });
-                    view.focus();
-                });
-            }
-
-            return {
-                dom, mount: () => {
-                    if (dom.parentElement) {
-                        dom.parentElement.classList.add("hunspell-tooltip-container");
-                    }
-                }
-            };
-        }
-    };
-}
-
-function findMisspelledTokenAt(view: EditorView, pos: number, spellchecker: HunspellSpellcheckerPlugin): {
-    text: string;
-    from: number;
-    to: number
-} | null {
-    const line = view.state.doc.lineAt(pos);
-    for (const token of tokenize(line.text)) {
-        const from = line.from + token.from;
-        const to = line.from + token.to;
-        if (from <= pos && pos <= to && spellchecker.shouldFlagWord(token.text)) {
-            return {text: token.text, from, to};
-        }
-    }
-
-    return null;
-}
-
-function normalizeCustomDictionaryWord(word: string): string {
-    return word
-        .trim()
-        .toLocaleLowerCase()
-        .normalize("NFD");
-}
-
-function parseCustomDictionary(content: string): string[] {
-    return content
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter((line) => line && !line.startsWith("#"))
-        .map(normalizeCustomDictionaryWord);
-}
-
-function getFileName(path: string): string {
-    return path.split("/").pop() ?? "";
-}
-
-function removeFileExtension(fileName: string): string {
-    const index = fileName.lastIndexOf(".");
-    return index === -1 ? fileName : fileName.slice(0, index);
-}
-
-class SpellcheckerSettingTab extends PluginSettingTab {
-    plugin: HunspellSpellcheckerPlugin;
-    availableRemoteLanguages: {
-        id: string,
-        name: string
-    }[] = [];
-
-    constructor(app: App, plugin: HunspellSpellcheckerPlugin) {
-        super(app, plugin);
-        this.plugin = plugin;
-    }
-
-    display(): void {
-        this.containerEl.empty();
-        new Setting(this.containerEl).setHeading().setName("Hunspell Spellchecker");
-
-        new Setting(this.containerEl)
-            .setName("Active language")
-            .setDesc("Select the language for spell checking")
-            .addDropdown((dropdown) => {
-                if (this.plugin.settings.languages.length === 0) {
-                    dropdown.addOption("", "No languages installed");
-                    dropdown.setValue("");
-                    dropdown.setDisabled(true);
-                    return dropdown;
-                }
-
-                for (const language of this.plugin.settings.languages) {
-                    dropdown.addOption(language.id, language.name);
-                }
-
-                return dropdown
-                    .setValue(this.plugin.settings.activeLanguage)
-                    .onChange(async (value) => {
-                        this.plugin.settings.activeLanguage = value;
-                        await this.plugin.saveSettings();
-                        await this.plugin.reloadDictionary();
-                        this.display();
-                    });
-            });
-
-        new Setting(this.containerEl).setHeading().setName("Installed Languages");
-
-        const langContainer = this.containerEl.createEl("div", {cls: "hunspell-language-list"});
-
-        if (this.plugin.settings.languages.length === 0) {
-            langContainer.createEl("p", {text: "No languages installed. Download one from the list below.", cls: "setting-item-description"});
-        } else {
-            for (const language of this.plugin.settings.languages) {
-                const item = langContainer.createEl("div", {cls: "hunspell-language-item"});
-                const info = item.createEl("div", {cls: "hunspell-language-info"});
-                info.createEl("span", {text: language.name, cls: "hunspell-language-name"});
-                info.createEl("span", {text: language.id, cls: "hunspell-language-id"});
-
-                const actions = item.createEl("div", {cls: "hunspell-language-actions"});
-
-                const deleteBtn = actions.createEl("button", {text: "✕", cls: "mod-warning"});
-                deleteBtn.title = "Delete language";
-                deleteBtn.addEventListener("click", () => {
-                    new ConfirmationModal(this.app, "Delete language", `Are you sure you want to delete the files for "${language.name}"? This action cannot be undone.`, () => {
-                        void (async () => {
-                            try {
-                                await this.plugin.deletePluginFile(language.affPath);
-                                await this.plugin.deletePluginFile(language.dicPath);
-
-                                await this.plugin.refreshAvailableLanguages();
-                                await this.plugin.saveSettings();
-                                await this.plugin.reloadDictionary();
-                                this.display();
-                            } catch (e) {
-                                new Notice(`Error deleting language: ${String(e)}`);
-                                console.error(e);
-                            }
-                        })();
-                    }).open();
-                });
-            }
-        }
-
-        this.containerEl.createEl("hr");
-
-        new Setting(this.containerEl).setHeading().setName("Download Languages");
-        this.containerEl.createEl("p", {
-            text: "Download dictionaries directly from the official LibreOffice repository on GitHub.", cls: "setting-item-description"
-        });
-
-        const fetchBtn = this.containerEl.createEl("button", {
-            text: "Fetch available languages", cls: "mod-cta hunspell-add-language-btn"
-        });
-
-        fetchBtn.addEventListener("click", () => {
-            void (async () => {
-                fetchBtn.textContent = "Fetching...";
-                fetchBtn.disabled = true;
-                try {
-                    const now = Date.now();
-                    const oneDay = 24 * 60 * 60 * 1000;
-                    if (this.plugin.settings.lastFetch && now - this.plugin.settings.lastFetch < oneDay && Object.keys(this.plugin.settings.languageCache).length > 0) {
-                        this.availableRemoteLanguages = Object.entries(this.plugin.settings.languageCache).map(([id, name]) => ({ id, name }));
-                    } else {
-                        const response = await requestUrl({url: "https://api.github.com/repos/LibreOffice/dictionaries/contents"});
-                        const data = response.json as GithubContentItem[];
-
-                        const languageCache: LanguageCache = {};
-                        this.availableRemoteLanguages = data
-                            .filter(item => item.type === "dir" && !item.name.startsWith(".") && item.name !== "util")
-                            .map(item => {
-                                let name = item.name;
-                                try {
-                                    const displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
-                                    name = displayNames.of(item.name.replace('_', '-')) ?? item.name;
-                                } catch (err) {
-                                    console.error(err);
-                                }
-                                languageCache[item.name] = name;
-                                return {id: item.name, name: name};
-                            })
-                            .sort((a, b) => a.name.localeCompare(b.name));
-                        
-                        this.plugin.settings.languageCache = languageCache;
-                        this.plugin.settings.lastFetch = now;
-                        await this.plugin.saveSettings();
-                    }
-                    
-                    this.display();
-                } catch (err) {
-                    new Notice("Failed to fetch languages from GitHub.");
-                    console.error(err);
-                    fetchBtn.textContent = "Fetch available languages";
-                    fetchBtn.disabled = false;
-                }
-            })();
-        });
-
-        if (this.availableRemoteLanguages.length > 0) {
-            fetchBtn.classList.add("is-hidden");
-
-            const remoteListEl = this.containerEl.createEl("div", {
-                cls: "hunspell-language-list", attr: {style: "max-height: 400px; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); padding: 8px;"}
-            });
-
-            for (const lang of this.availableRemoteLanguages) {
-                if (this.plugin.settings.languages.some(l => l.id === lang.id)) continue;
-
-                const item = remoteListEl.createEl("div", {cls: "hunspell-language-item", attr: {style: "margin-bottom: 4px;"}});
-                const info = item.createEl("div", {cls: "hunspell-language-info"});
-                info.createEl("span", {text: lang.name, cls: "hunspell-language-name"});
-                info.createEl("span", {text: lang.id, cls: "hunspell-language-id"});
-
-                const installBtn = item.createEl("button", {text: "Install", cls: "mod-cta"});
-                installBtn.addEventListener("click", () => {
-                    void (async () => {
-                        installBtn.textContent = "Installing...";
-                        installBtn.disabled = true;
-                        try {
-                            const response = await requestUrl({url: `https://api.github.com/repos/LibreOffice/dictionaries/contents/${lang.id}`});
-                            const files = response.json as GithubContentItem[];
-
-                            let affFile = files.find(f => f.name === `${lang.id}.aff`);
-                            let dicFile = files.find(f => f.name === `${lang.id}.dic`);
-
-                            if (!affFile) {
-                                affFile = files.find(f => f.name.endsWith(".aff") && !f.name.startsWith("hyph_") && !f.name.startsWith("th_"));
-                            }
-
-                            if (!dicFile) {
-                                dicFile = files.find(f => f.name.endsWith(".dic") && !f.name.startsWith("hyph_") && !f.name.startsWith("th_"));
-                            }
-
-                            if (!affFile || !dicFile || !affFile.download_url || !dicFile.download_url) {
-                                throw new Error("Missing appropriate .aff or .dic file in repository.");
-                            }
-
-                            const affResponse = await requestUrl({url: affFile.download_url});
-                            const dicResponse = await requestUrl({url: dicFile.download_url});
-
-                            const langsPath = this.plugin.getPluginPath("languages");
-                            if (!(await this.app.vault.adapter.exists(langsPath))) {
-                                await this.app.vault.adapter.mkdir(langsPath);
-                            }
-
-                            await this.app.vault.adapter.writeBinary(this.plugin.getPluginPath(`languages/${affFile.name}`), affResponse.arrayBuffer);
-                            await this.app.vault.adapter.writeBinary(this.plugin.getPluginPath(`languages/${dicFile.name}`), dicResponse.arrayBuffer);
-
-                            await this.plugin.refreshAvailableLanguages();
-                            await this.plugin.saveSettings();
-                            await this.plugin.reloadDictionary();
-
-                            new Notice(`Installed ${lang.name}`);
-                            this.display();
-                        } catch (e) {
-                            new Notice(`Error installing language: ${String(e)}`);
-                            console.error(e);
-                            installBtn.textContent = "Install";
-                            installBtn.disabled = false;
-                        }
-                    })();
-                });
-            }
-        }
-
-        this.containerEl.createEl("hr");
-
-        new Setting(this.containerEl).setHeading().setName("Personal Dictionary");
-        this.containerEl.createEl("p", {
-            text: "Words you have added to your dictionary via right-click to be accepted during verification.", cls: "setting-item-description"
-        });
-
-        const customDictButtons = this.containerEl.createEl("div", {
-            attr: {style: "display: flex; gap: 8px; margin-top: 8px;"}
-        });
-
-        const editCustomBtn = customDictButtons.createEl("button", {text: "Edit File"});
-        editCustomBtn.addEventListener("click", () => {
-            void (async () => {
-                const content = await this.plugin.readPluginFileSafe(CUSTOM_DICTIONARY_FILENAME);
-                new TextEditorModal(this.app, "Edit Personal Dictionary", content, async (newContent) => {
-                    await this.plugin.writePluginFile(CUSTOM_DICTIONARY_FILENAME, newContent);
-                    await this.plugin.loadWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
-                    this.plugin.refreshEditors();
-                    new Notice("Personal dictionary updated.");
-                }).open();
-            })();
-        });
-
-        const clearCustomBtn = customDictButtons.createEl("button", {text: "Clear All", cls: "mod-warning"});
-        clearCustomBtn.addEventListener("click", () => {
-            new ConfirmationModal(this.app, "Clear Personal Dictionary", "Are you sure you want to delete all words from your personal dictionary? This action cannot be undone.", () => {
-                void (async () => {
-                    this.plugin.customDictionaryWords.clear();
-                    await this.plugin.saveWordList(CUSTOM_DICTIONARY_FILENAME, this.plugin.customDictionaryWords);
-                    this.plugin.refreshEditors();
-                    new Notice("Personal dictionary cleared.");
-                })();
-            }).open();
-        });
-
-        this.containerEl.createEl("hr");
-
-        new Setting(this.containerEl).setHeading().setName("Ignored Words");
-        this.containerEl.createEl("p", {
-            text: "Words you have asked the spellchecker to ignore locally.", cls: "setting-item-description"
-        });
-
-        const ignoredWordsButtons = this.containerEl.createEl("div", {
-            attr: {style: "display: flex; gap: 8px; margin-top: 8px;"}
-        });
-
-        const editIgnoredBtn = ignoredWordsButtons.createEl("button", {text: "Edit File"});
-        editIgnoredBtn.addEventListener("click", () => {
-            void (async () => {
-                const content = await this.plugin.readPluginFileSafe(IGNORED_WORDS_FILENAME);
-                new TextEditorModal(this.app, "Edit Ignored Words", content, async (newContent) => {
-                    await this.plugin.writePluginFile(IGNORED_WORDS_FILENAME, newContent);
-                    await this.plugin.loadWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
-                    this.plugin.refreshEditors();
-                    new Notice("Ignored words updated.");
-                }).open();
-            })();
-        });
-
-        const clearIgnoredBtn = ignoredWordsButtons.createEl("button", {text: "Clear All", cls: "mod-warning"});
-        clearIgnoredBtn.addEventListener("click", () => {
-            new ConfirmationModal(this.app, "Clear Ignored Words", "Are you sure you want to clear the list of all ignored words? The spellchecker will flag them again.", () => {
-                void (async () => {
-                    this.plugin.ignoredWords.clear();
-                    await this.plugin.saveWordList(IGNORED_WORDS_FILENAME, this.plugin.ignoredWords);
-                    this.plugin.refreshEditors();
-                    new Notice("Ignored words list cleared.");
-                })();
-            }).open();
-        });
     }
 }
