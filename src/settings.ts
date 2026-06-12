@@ -144,13 +144,13 @@ export class SpellcheckerSettingTab extends PluginSettingTab {
             fetchBtn.classList.add("is-hidden");
 
             const remoteListEl = this.containerEl.createEl("div", {
-                cls: "hunspell-language-list", attr: {style: "max-height: 400px; overflow-y: auto; border: 1px solid var(--background-modifier-border); border-radius: var(--radius-s); padding: 8px;"}
+                cls: "hunspell-language-list hunspell-remote-list"
             });
 
             for (const lang of this.availableRemoteLanguages) {
                 if (this.plugin.settings.languages.some(l => l.id === lang.id)) continue;
 
-                const item = remoteListEl.createEl("div", {cls: "hunspell-language-item", attr: {style: "margin-bottom: 4px;"}});
+                const item = remoteListEl.createEl("div", {cls: "hunspell-language-item hunspell-remote-item"});
                 const info = item.createEl("div", {cls: "hunspell-language-info"});
                 info.createEl("span", {text: lang.name, cls: "hunspell-language-name"});
                 info.createEl("span", {text: lang.id, cls: "hunspell-language-id"});
@@ -214,9 +214,7 @@ export class SpellcheckerSettingTab extends PluginSettingTab {
             text: "Words you have added to your dictionary via right-click to be accepted during verification.", cls: "setting-item-description"
         });
 
-        const customDictButtons = this.containerEl.createEl("div", {
-            attr: {style: "display: flex; gap: 8px; margin-top: 8px;"}
-        });
+        const customDictButtons = this.containerEl.createEl("div", {cls: "hunspell-dict-buttons"});
 
         const editCustomBtn = customDictButtons.createEl("button", {text: "Edit File"});
         editCustomBtn.addEventListener("click", () => {
@@ -250,9 +248,7 @@ export class SpellcheckerSettingTab extends PluginSettingTab {
             text: "Words you have asked the spellchecker to ignore locally.", cls: "setting-item-description"
         });
 
-        const ignoredWordsButtons = this.containerEl.createEl("div", {
-            attr: {style: "display: flex; gap: 8px; margin-top: 8px;"}
-        });
+        const ignoredWordsButtons = this.containerEl.createEl("div", {cls: "hunspell-dict-buttons"});
 
         const editIgnoredBtn = ignoredWordsButtons.createEl("button", {text: "Edit File"});
         editIgnoredBtn.addEventListener("click", () => {

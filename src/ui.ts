@@ -24,14 +24,10 @@ export class TextEditorModal extends Modal {
                 this.content = value;
             });
 
-        this.textArea.inputEl.setCssProps({
-            width: "100%",
-            minHeight: "300px",
-            resize: "vertical"
-        });
+        this.textArea.inputEl.classList.add("hunspell-text-area");
 
         const buttonContainer = contentEl.createEl('div', {
-            attr: {style: 'display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;'}
+            cls: 'hunspell-modal-buttons hunspell-modal-buttons-margin-m'
         });
 
         const cancelBtn = buttonContainer.createEl('button', {text: 'Cancel'});
@@ -71,7 +67,7 @@ export class ConfirmationModal extends Modal {
         contentEl.createEl('p', {text: this.message});
 
         const buttonContainer = contentEl.createEl('div', {
-            attr: {style: 'display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px;'}
+            cls: 'hunspell-modal-buttons hunspell-modal-buttons-margin-l'
         });
 
         const cancelBtn = buttonContainer.createEl('button', {text: 'Cancel'});

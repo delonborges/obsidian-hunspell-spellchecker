@@ -48,10 +48,10 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             this.statusBar = this.addStatusBarItem();
             this.statusBar.classList.add("hunspell-status-bar-item");
 
-            this.langEl = this.statusBar.createEl("span", {cls: "hunspell-status-lang", attr: {style: "cursor: pointer;"}});
+            this.langEl = this.statusBar.createEl("span", {cls: "hunspell-status-lang"});
             this.langEl.title = "Settings / Change language";
 
-            this.errorEl = this.statusBar.createEl("span", {cls: "hunspell-status-error", attr: {style: "margin-left: 4px; cursor: pointer;"}});
+            this.errorEl = this.statusBar.createEl("span", {cls: "hunspell-status-error"});
 
             this.registerDomEvent(this.langEl, "click", (event) => {
                 if (!this.settings.enabled) return;
@@ -358,12 +358,12 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
         if (state === "disabled" || state === "waiting" || state === "no language" || state === "error" || state.startsWith("loading")) {
             this.langEl.textContent = `Hunspell: ${state}`;
             this.errorEl.textContent = "";
-            this.errorEl.style.display = "none";
+            this.errorEl.hide();
         } else if (language) {
             const langId = language.id.replace('_', '-');
             this.langEl.textContent = `${langId}: `;
 
-            this.errorEl.style.display = "inline";
+            this.errorEl.show();
             if (this.errorCount > 0) {
                 this.errorEl.textContent = `🔴 (${this.errorCount})`;
                 this.errorEl.title = "Show misspelled words";

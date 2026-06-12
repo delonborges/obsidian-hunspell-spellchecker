@@ -92,3 +92,50 @@
 .hunspell-status-bar-item:hover {
   color: var(--text-normal);
 }
+
+.hunspell-status-lang {
+  cursor: pointer;
+}
+
+.hunspell-status-error {
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.hunspell-remote-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: 8px;
+}
+
+.hunspell-remote-item {
+  margin-bottom: 4px;
+}
+
+.hunspell-dict-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.hunspell-modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hunspell-modal-buttons-margin-m {
+  margin-top: 16px;
+}
+
+.hunspell-modal-buttons-margin-l {
+  margin-top: 24px;
+}
+
+.hunspell-text-area {
+  width: 100%;
+  min-height: 300px;
+  resize: vertical;
+}
