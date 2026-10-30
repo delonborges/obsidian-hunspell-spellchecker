@@ -2,10 +2,12 @@ import {Editor, EditorRange, MarkdownView, Menu, normalizePath, Notice, Platform
 import {StateEffect} from "@codemirror/state";
 import {EditorView} from "@codemirror/view";
 import {boundedLevenshteinDistance, HunspellDictionary} from "./hunspell";
-import {getFileName, LRUCache, parseCustomDictionary, removeFileExtension} from "./utils";
+import {LRUCache, parseCustomDictionary} from "./utils";
 import {AppWithSettings, LanguageConfig, SpellcheckerSettings} from "./types";
 import {SpellcheckerSettingTab} from "./settings";
-import {createSpellcheckExtension} from "./editor";
+import {createSpellcheckExtension, isPositionInCodeblock} from "./editor";
+import {LanguageRegistry} from "./languages";
+import {PluginLogger} from "./logger";
 
 export const forceUpdateEffect = StateEffect.define<null>();
 
@@ -14,7 +16,7 @@ const CUSTOM_DICTIONARY_FILENAME = "custom_dictionary.txt";
 const IGNORED_WORDS_FILENAME = "ignored_words.txt";
 
 const DEFAULT_SETTINGS: SpellcheckerSettings = {
-    activeLanguage: "", languages: [], enabled: true, languageCache: {}, lastFetch: 0
+    activeLanguage: "", languages: [], enabled: true, checkCodeblocks: false, languageCache: {}, languageCacheVersion: 0, lastFetch: 0
 };
 
 export default class HunspellSpellcheckerPlugin extends Plugin {
@@ -22,6 +24,8 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     dictionary: HunspellDictionary | null = null;
     ignoredWords = new Set<string>();
     customDictionaryWords = new Set<string>();
+    languages = new LanguageRegistry(this);
+    logger!: PluginLogger;
 
     statusBar: HTMLElement | null = null;
     langEl: HTMLElement | null = null;
@@ -44,6 +48,8 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
 
         void (async () => {
             await this.loadSettings();
+            this.logger = new PluginLogger(this.app.vault.adapter, this.getPluginPath("logs/hunspell-spellchecker.log"));
+            this.logger.info("plugin.onload");
 
             this.statusBar = this.addStatusBarItem();
             this.statusBar.classList.add("hunspell-status-bar-item");
@@ -268,7 +274,7 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
     }
 
     async refreshAvailableLanguages(): Promise<void> {
-        const discoveredLanguages = await this.discoverDictionaryLanguages();
+        const discoveredLanguages = await this.languages.scan();
         this.settings.languages = discoveredLanguages;
 
         if (discoveredLanguages.length === 0) {
@@ -459,6 +465,10 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             return;
         }
 
+        if (!this.settings.checkCodeblocks && isPositionInCodeblock(editor, range.from)) {
+            return;
+        }
+
         const word = editor.getRange(range.from, range.to);
         if (!this.shouldFlagWord(word)) {
             return;
@@ -506,56 +516,17 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
 
     private getContextWordRange(editor: Editor): EditorRange | null {
         if (editor.somethingSelected()) {
-            return {
+            const range = {
                 from: editor.getCursor("from"), to: editor.getCursor("to")
             };
+            const selectedText = editor.getRange(range.from, range.to);
+            if (!selectedText.trim() || /\s/.test(selectedText)) {
+                return null;
+            }
+            return range;
         }
 
         return editor.wordAt(editor.getCursor());
-    }
-
-    private async discoverDictionaryLanguages(): Promise<LanguageConfig[]> {
-        try {
-            const languagesPath = this.getPluginPath("languages");
-            if (!(await this.app.vault.adapter.exists(languagesPath))) {
-                await this.app.vault.adapter.mkdir(languagesPath);
-            }
-
-            const listedFiles = await this.app.vault.adapter.list(languagesPath);
-            const entries = listedFiles.files.map((file) => getFileName(file));
-            const dicIds = new Set(entries.filter((entry) => entry.endsWith(".dic")).map((entry) => removeFileExtension(entry)));
-
-            let displayNames: Intl.DisplayNames | null = null;
-            try {
-                displayNames = new Intl.DisplayNames(['en'], {type: 'language'});
-            } catch {
-                console.error("Failed to initialize Intl.DisplayNames");
-            }
-
-            return entries
-                .filter((entry) => entry.endsWith(".aff"))
-                .map((entry) => removeFileExtension(entry))
-                .filter((id) => dicIds.has(id))
-                .sort((left, right) => left.localeCompare(right))
-                .map((id) => {
-                    let name = id;
-                    if (displayNames) {
-                        try {
-                            const normalizedId = id.replace('_', '-');
-                            name = displayNames.of(normalizedId) ?? id;
-                        } catch (err) {
-                            console.error(err);
-                        }
-                    }
-
-                    return {
-                        id, name: name, affPath: `languages/${id}.aff`, dicPath: `languages/${id}.dic`
-                    };
-                });
-        } catch (err) {
-            console.error(err);
-            return [];
-        }
     }
 
     private async ensurePluginDirectory(): Promise<void> {

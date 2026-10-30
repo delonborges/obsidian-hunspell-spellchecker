@@ -140,8 +140,9 @@ export class HunspellDictionary {
         const normalized = this.normalizeWord(parsed.word);
         if (!normalized) return;
 
-        this.rootWords.set(normalized, parsed.flags);
-        this.lowerRootWords.set(normalized.toLocaleLowerCase(), parsed.flags);
+        const flags = mergeFlags(this.rootWords.get(normalized), parsed.flags);
+        this.rootWords.set(normalized, flags);
+        this.lowerRootWords.set(normalized.toLocaleLowerCase(), flags);
     }
 
     private checkAffixes(word: string): boolean {
@@ -417,9 +418,65 @@ function parseFlags(flags: string, mode: ParsedAffixes["flagMode"]): string[] {
     return flags.split(",");
 }
 
+function mergeFlags(existing: string[] | undefined, flags: string[]): string[] {
+    if (!existing || existing.length === 0) {
+        return flags;
+    }
+
+    return Array.from(new Set([...existing, ...flags]));
+}
+
+function sanitizeConditionClasses(condition: string): string {
+    const chars = Array.from(condition);
+    let result = "";
+    let classStart = -1;
+
+    for (let index = 0; index < chars.length; index += 1) {
+        const char = chars[index] ?? "";
+
+        if (char === "\\") {
+            result += `${char}${chars[index + 1] ?? ""}`;
+            index += 1;
+            continue;
+        }
+
+        if (classStart === -1) {
+            if (char === "[") {
+                classStart = index;
+            }
+            result += char;
+            continue;
+        }
+
+        if (char === "]") {
+            classStart = -1;
+            result += char;
+            continue;
+        }
+
+        const rangeStart = chars[classStart + 1] === "^" ? classStart + 2 : classStart + 1;
+        const isRangeHyphen = char === "-" && index > rangeStart && index < chars.length - 1 && chars[index + 1] !== "]";
+        if (isRangeHyphen && (chars[index - 1]?.codePointAt(0) ?? 0) > (chars[index + 1]?.codePointAt(0) ?? 0)) {
+            result += "\\-";
+            continue;
+        }
+
+        result += char;
+    }
+
+    return result;
+}
+
 function conditionToRegExp(condition: string, type: "PFX" | "SFX"): RegExp {
     const normalized = condition === "." ? ".*" : condition;
-    return new RegExp(type === "SFX" ? `${normalized}$` : `^${normalized}`, "u");
+    const safeCondition = sanitizeConditionClasses(normalized);
+
+    try {
+        return new RegExp(type === "SFX" ? `${safeCondition}$` : `^${safeCondition}`, "u");
+    } catch {
+        console.warn(`Hunspell: affix condition "${condition}" is not a valid regular expression, matching any word instead.`);
+        return new RegExp(".*", "u");
+    }
 }
 
 function stripAffixFlags(value: string): string {
