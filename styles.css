@@ -110,6 +110,16 @@
   padding: 8px;
 }
 
+.hunspell-language-search {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.hunspell-remote-empty {
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
 .hunspell-remote-item {
   margin-bottom: 4px;
 }
