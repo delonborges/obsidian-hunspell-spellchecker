@@ -152,8 +152,7 @@ function buildSuggestionTooltip(view: EditorView, pos: number, spellchecker: Hun
 
     return {
         pos: token.from, end: token.to, above: false, arrow: false, create: () => {
-            const dom = activeDocument.createElement("div");
-            dom.className = "hunspell-suggestion-container";
+            const dom = activeDocument.createDiv({cls: "hunspell-suggestion-container"});
 
             for (const suggestion of suggestions) {
                 const button = dom.createEl("button", {text: suggestion, cls: "hunspell-suggestion-button"});

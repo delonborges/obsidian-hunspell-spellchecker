@@ -19,6 +19,8 @@ A high-performance, offline spellchecker for Obsidian using standard Hunspell di
 
 ## Installation
 
+Requires Obsidian 1.13.0 or later.
+
 ### From Obsidian Community Plugins
 
 1. Open Obsidian Settings.
@@ -59,8 +61,12 @@ rules:
 - Both files must have the same base name, and it is case-sensitive: `en_US.aff` with `en_US.dic` is accepted, while `en_US.aff` with `en_us.dic` is rejected.
 - The base name may only contain letters, numbers, `_` and `-`. Spaces and dots are not allowed.
 
-If a language with the same name is already installed, you will be asked to confirm before its files are replaced. To remove a local language, use the ✕ button
+If a language with the same name is already installed, you will be asked to confirm before its files are replaced. To remove a local language, use the trash icon
 next to it in **Installed Languages**.
+
+## Support
+
+If you find this plugin useful, you can support its development on [Buy Me a Coffee](https://buymeacoffee.com/delonborges).
 
 ## Contributing
 

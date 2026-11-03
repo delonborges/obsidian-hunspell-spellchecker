@@ -54,10 +54,10 @@ export default class HunspellSpellcheckerPlugin extends Plugin {
             this.statusBar = this.addStatusBarItem();
             this.statusBar.classList.add("hunspell-status-bar-item");
 
-            this.langEl = this.statusBar.createEl("span", {cls: "hunspell-status-lang"});
+            this.langEl = this.statusBar.createSpan({cls: "hunspell-status-lang"});
             this.langEl.title = "Settings / Change language";
 
-            this.errorEl = this.statusBar.createEl("span", {cls: "hunspell-status-error"});
+            this.errorEl = this.statusBar.createSpan({cls: "hunspell-status-error"});
 
             this.registerDomEvent(this.langEl, "click", (event) => {
                 if (!this.settings.enabled) return;
