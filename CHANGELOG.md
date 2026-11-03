@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.1]
+
+### Changed
+
+- The plugin now requires Obsidian 1.13.0 or later.
+- The settings tab uses Obsidian's declarative settings API, so plugin settings appear in Obsidian's settings search.
+- Installed languages are removed with a trash icon, and the personal dictionary and ignored words use pencil (edit) and trash (clear all) icon buttons with tooltips.
+
+### Fixed
+
+- Resolved Obsidian review warnings by creating settings, modal, status bar and suggestion elements with Obsidian's `createDiv` and `createSpan` helpers.
+
 ## [1.3.0]
 
 ### Added

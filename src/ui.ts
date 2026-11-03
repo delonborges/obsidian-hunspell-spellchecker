@@ -26,7 +26,7 @@ export class TextEditorModal extends Modal {
 
         this.textArea.inputEl.classList.add("hunspell-text-area");
 
-        const buttonContainer = contentEl.createEl('div', {
+        const buttonContainer = contentEl.createDiv({
             cls: 'hunspell-modal-buttons hunspell-modal-buttons-margin-m'
         });
 
@@ -66,7 +66,7 @@ export class ConfirmationModal extends Modal {
         contentEl.createEl('h2', {text: this.title});
         contentEl.createEl('p', {text: this.message});
 
-        const buttonContainer = contentEl.createEl('div', {
+        const buttonContainer = contentEl.createDiv({
             cls: 'hunspell-modal-buttons hunspell-modal-buttons-margin-l'
         });
 
